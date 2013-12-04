@@ -1,6 +1,7 @@
 const int activateButton = 2;
 const int cameraButton = 3;
 const int flashPin = 13;
+const int motorPin = 9;
 
 int activateButtonState = 0;
 int activateFirstTap = 0;
@@ -11,6 +12,10 @@ unsigned long activatedAt = 0;
 float doubleTapTime = 2000;
 float autoDeactivateTime = 3000;
 
+float motorOnTime = 1000;
+unsigned long motorTurnedOnAt = 0;
+
+
 void setup()
 {
   pinMode(flashPin, OUTPUT);
@@ -18,6 +23,7 @@ void setup()
   Serial.begin(9600);
   Serial.println("setup");
 }
+
 
 void loop()
 {
@@ -37,6 +43,16 @@ void loop()
     activeNow = false;
   }
   
+  if (motorTurnedOnAt > 0)
+  {
+    // Oh no! the motor is on!
+    if (shouldTurnMotorOff)
+    {
+      motorTurnedOnAt = 0;
+      turnMotorOn(false);
+    }
+  }
+  
   if (activeNow)
   {
     int clickButtonPressed = digitalRead(cameraButton);
@@ -51,13 +67,17 @@ void loop()
       
       // 2 Take a picture
       takePicture();
+      
       // 3 Motor on for some time
+      motorTurnedOnAt = millis();;
+      turnMotorOn(true);
+      
       // 4 get location
       // 5 upload to net
-      
     }
   }
 }
+
 
 void shouldTurnOnFlashLight(boolean state)
 {
@@ -127,7 +147,36 @@ boolean shouldActivate()
   }
 }
 
+
 void takePicture()
 {
   Serial.println("takePicture: __incomplete__");
 }
+
+
+boolean shouldTurnMotorOff()
+{
+  int currentTime = millis();
+  if ((currentTime-motorTurnedOnAt)>motorOnTime)
+  {
+    return true;
+  }
+  else
+  {
+    return false;
+  }
+}
+
+
+void turnMotorOn(boolean state)
+{
+  if (state)
+  {
+    analogWrite(motorPin, 254);
+  }
+  else
+  {
+    analogWrite(motorPin, 0);
+  }
+}
+
