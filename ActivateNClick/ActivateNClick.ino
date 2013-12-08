@@ -1,7 +1,10 @@
 const int activateButton = 2;
 const int cameraButton = 3;
-const int flashPin = 13;
+const int location1Button = 4;
+//const int location2Button = 5;
+const int flashPin = 10;
 const int motorPin = 9;
+const int debugPin = 13;
 
 int activateButtonState = 0;
 int activateFirstTap = 0;
@@ -10,7 +13,10 @@ unsigned long activateFirstTapTime = 0;
 boolean activeNow = false;
 unsigned long activatedAt = 0;
 float doubleTapTime = 2000;
-float autoDeactivateTime = 3000;
+float autoDeactivateTime = 5000;
+
+boolean activeOOINow = false;
+unsigned long activatedOOIAt= 0;
 
 float motorOnTime = 1000;
 unsigned long motorTurnedOnAt = 0;
@@ -19,6 +25,7 @@ unsigned long motorTurnedOnAt = 0;
 void setup()
 {
   pinMode(flashPin, OUTPUT);
+  pinMode(debugPin, OUTPUT);
   pinMode(activateButton, INPUT);
   Serial.begin(9600);
   Serial.println("setup");
@@ -29,7 +36,7 @@ void loop()
 {
   if (shouldActivate())
   {
-    Serial.println("turn On");
+    //Serial.println("turn On");
     shouldTurnOnFlashLight(true);
     activatedAt = millis();
     activeNow = true;
@@ -37,19 +44,57 @@ void loop()
   
   if (shouldDeactivate())
   {
-    Serial.println("auto Off");
+    //Serial.println("auto Off");
     shouldTurnOnFlashLight(false);
     activatedAt = 0;
     activeNow = false;
   }
   
-  if (motorTurnedOnAt > 0)
+  if (shouldTurnMotorOff())
   {
+    Serial.println("shouldTurnMotorOff");
     // Oh no! the motor is on!
-    if (shouldTurnMotorOff)
+    motorTurnedOnAt = 0;
+    turnMotorOn(false);
+  }
+  
+  if (nearOOI())
+  {
+    digitalWrite(debugPin, HIGH);
+    // near obeject of Interest 
+    Serial.println("near OOI");
+    activatedOOIAt = millis();
+    activeOOINow = true;
+    
+    // Turn on the motor
+    motorTurnedOnAt = millis();;
+    turnMotorOn(true);
+  }
+  
+  if (awayFromOOI())
+  {
+    digitalWrite(debugPin, LOW);
+    Serial.println("awayFromOOI");
+    activatedOOIAt = 0;
+    activeOOINow = false;
+  }
+  
+  
+  if (activeOOINow)
+  {
+    //    digitalWrite(debugPin, HIGH);
+    int likeButtonPressed = digitalRead(cameraButton);
+    if (likeButtonPressed)
     {
-      motorTurnedOnAt = 0;
-      turnMotorOn(false);
+      digitalWrite(debugPin, LOW);
+      Serial.println("Liked");
+      activatedOOIAt = 0;
+      activeOOINow = false;
+      
+      // Turn on the motor
+      motorTurnedOnAt = millis();;
+      turnMotorOn(true);
+      //TODO: Like function
     }
   }
   
@@ -61,7 +106,7 @@ void loop()
       Serial.println("Click!");
       activatedAt = 0;
       activeNow = false;
-       tower
+      
       // 1 Flashlight off
       shouldTurnOnFlashLight(false);
       
@@ -99,7 +144,7 @@ boolean shouldDeactivate()
     return false;
   }
   
-  int currentTime = millis();
+  long currentTime = millis();
   if ((currentTime - activatedAt) > autoDeactivateTime)
   {
     return true;
@@ -126,7 +171,7 @@ boolean shouldActivate()
     }else
     {
       // second tap
-      int currentTime = millis();
+      long currentTime = millis();
       if ((currentTime-activateFirstTapTime)<doubleTapTime)
       {
 //        Serial.println("second tap");
@@ -156,10 +201,17 @@ void takePicture()
 
 boolean shouldTurnMotorOff()
 {
-  int currentTime = millis();
-  if ((currentTime-motorTurnedOnAt)>motorOnTime)
+  if (motorTurnedOnAt > 0)
   {
-    return true;
+    long currentTime = millis();
+    if ((currentTime-motorTurnedOnAt)>motorOnTime)
+    {
+      return true;
+    }
+    else
+    {
+      return false;
+    }
   }
   else
   {
@@ -180,3 +232,51 @@ void turnMotorOn(boolean state)
   }
 }
 
+
+boolean nearOOI()
+{
+  //Serial.println("nearOOI: checking function");
+  if(activeOOINow)
+  {
+    return false;
+  }
+  else
+  {
+    int location1Status = digitalRead(location1Button);
+    if (location1Status == HIGH)
+    {
+      Serial.println("location1Status: HIGH");
+      delay(250);
+      return true;
+    }
+    else
+    {
+      return false;
+    }
+  }
+  //TODO: add more locations
+  //TODO: make it location specific
+}
+
+boolean awayFromOOI()
+{
+  if (activatedOOIAt > 0)
+  {
+    long awayFromOOIcurrentTime = millis();
+    if ((awayFromOOIcurrentTime - activatedOOIAt) > autoDeactivateTime)
+    {
+      Serial.println(activatedOOIAt);
+      Serial.println(awayFromOOIcurrentTime - activatedOOIAt);
+      return true;
+    }
+    else
+    {
+      Serial.println("____: in time");
+      return false;
+    }
+  }else
+  {
+    Serial.println("____: idle");
+    return false;
+  }
+}
