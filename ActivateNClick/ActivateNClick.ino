@@ -8,12 +8,13 @@ const int debugPin = 13;
 
 int activateButtonState = 0;
 int activateFirstTap = 0;
+int deAtivateFirstTap = 0;
 unsigned long activateFirstTapTime = 0;
 
 boolean activeNow = false;
 unsigned long activatedAt = 0;
 float doubleTapTime = 2000;
-float autoDeactivateTime = 5000;
+float autoDeactivateTime = 10000;
 
 boolean activeOOINow = false;
 unsigned long activatedOOIAt= 0;
@@ -36,28 +37,28 @@ void loop()
 {
   if (shouldActivate())
   {
-    //Serial.println("turn On");
+    Serial.println("activated");
     shouldTurnOnFlashLight(true);
     activatedAt = millis();
     activeNow = true;
   }
-  
+
   if (shouldDeactivate())
   {
-    //Serial.println("auto Off");
+    Serial.println("deactivated");
     shouldTurnOnFlashLight(false);
     activatedAt = 0;
     activeNow = false;
   }
-  
+
   if (shouldTurnMotorOff())
   {
-    Serial.println("shouldTurnMotorOff");
+    // Serial.println("shouldTurnMotorOff");
     // Oh no! the motor is on!
     motorTurnedOnAt = 0;
     turnMotorOn(false);
   }
-  
+
   if (nearOOI())
   {
     digitalWrite(debugPin, HIGH);
@@ -65,12 +66,13 @@ void loop()
     Serial.println("near OOI");
     activatedOOIAt = millis();
     activeOOINow = true;
-    
+
     // Turn on the motor
-    motorTurnedOnAt = millis();;
+    motorTurnedOnAt = millis();
+    ;
     turnMotorOn(true);
   }
-  
+
   if (awayFromOOI())
   {
     digitalWrite(debugPin, LOW);
@@ -78,8 +80,8 @@ void loop()
     activatedOOIAt = 0;
     activeOOINow = false;
   }
-  
-  
+
+
   if (activeOOINow)
   {
     //    digitalWrite(debugPin, HIGH);
@@ -90,14 +92,15 @@ void loop()
       Serial.println("Liked");
       activatedOOIAt = 0;
       activeOOINow = false;
-      
+
       // Turn on the motor
-      motorTurnedOnAt = millis();;
+      motorTurnedOnAt = millis();
+      ;
       turnMotorOn(true);
       //TODO: Like function
     }
   }
-  
+
   if (activeNow)
   {
     int clickButtonPressed = digitalRead(cameraButton);
@@ -106,17 +109,18 @@ void loop()
       Serial.println("Click!");
       activatedAt = 0;
       activeNow = false;
-      
+
       // 1 Flashlight off
       shouldTurnOnFlashLight(false);
-      
+
       // 2 Take a picture
       takePicture();
-      
+
       // 3 Motor on for some time
-      motorTurnedOnAt = millis();;
+      motorTurnedOnAt = millis();
+      ;
       turnMotorOn(true);
-      
+
       // 4 get location
       // 5 upload to net
     }
@@ -141,40 +145,59 @@ boolean shouldDeactivate()
 {
   if (activatedAt == 0)
   {
+    // shoe is deactive
     return false;
   }
-  
+
   long currentTime = millis();
   if ((currentTime - activatedAt) > autoDeactivateTime)
   {
+    // auto deactivate
+    deAtivateFirstTap = 0;
     return true;
-  }else
+  }
+  else
   {
+    // currently active
+    int deActivateButtonState = digitalRead(activateButton);
+    if (deActivateButtonState == HIGH)
+    {
+      delay(250);
+      if (deAtivateFirstTap == 0)
+      {
+        //Serial.println("deactivate first tap");
+        deAtivateFirstTap = 1;
+        return false;
+      }
+      else
+      {
+        //Serial.println("deactivate second tap");
+        deAtivateFirstTap = 0;
+        return true;
+      }
+    }
     return false;
   }
-}
 
-
-boolean shouldActivate()
-{
   activateButtonState = digitalRead(activateButton);
   if (activateButtonState == HIGH)
   {
-    delay(250);
+    delay(50);
     // first press
     if (activateFirstTap == 0)
     {
-//      Serial.println("first tap");
+      //      Serial.println("first tap");
       activateFirstTap = 1;
       activateFirstTapTime = millis();
       return false;
-    }else
+    }
+    else
     {
       // second tap
       long currentTime = millis();
       if ((currentTime-activateFirstTapTime)<doubleTapTime)
       {
-//        Serial.println("second tap");
+        //        Serial.println("second tap");
         // activate
         activateFirstTap = 0;
         activateFirstTapTime = 0;
@@ -182,11 +205,58 @@ boolean shouldActivate()
       }
       else
       {
-//        Serial.println("late first tap");
+        //        Serial.println("late first tap");
         // deactivate and register first tap
         activateFirstTap = 1;
         activateFirstTapTime = millis();
         return false;
+      }
+    }
+  }
+
+}
+
+
+boolean shouldActivate()
+{
+  if (activeNow)
+  {
+    return false;
+  }
+  else
+  {
+    activateButtonState = digitalRead(activateButton);
+    if (activateButtonState == HIGH)
+    {
+      delay(250);
+      // first press
+      if (activateFirstTap == 0)
+      {
+        //      Serial.println("first tap");
+        activateFirstTap = 1;
+        activateFirstTapTime = millis();
+        return false;
+      }
+      else
+      {
+        // second tap
+        long currentTime = millis();
+        if ((currentTime-activateFirstTapTime)<doubleTapTime)
+        {
+          //        Serial.println("second tap");
+          // activate
+          activateFirstTap = 0;
+          activateFirstTapTime = 0;
+          return true;
+        }
+        else
+        {
+          //        Serial.println("late first tap");
+          // deactivate and register first tap
+          activateFirstTap = 1;
+          activateFirstTapTime = millis();
+          return false;
+        }
       }
     }
   }
@@ -271,12 +341,14 @@ boolean awayFromOOI()
     }
     else
     {
-      Serial.println("____: in time");
+      //Serial.println("____: in time");
       return false;
     }
-  }else
+  }
+  else
   {
-    Serial.println("____: idle");
+    //Serial.println("____: idle");
     return false;
   }
 }
+
